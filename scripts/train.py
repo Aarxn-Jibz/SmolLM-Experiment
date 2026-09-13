@@ -26,7 +26,9 @@ def main() -> None:
         else:
             model=attach_lora(model,cfg.lora)
     train_set=SafetySFTDataset(train_rows,tok,cfg.training.max_length); val_set=SafetySFTDataset(val_rows,tok,cfg.training.max_length)
-    collator=CausalDataCollator(tok); loader=DataLoader(train_set,batch_size=cfg.training.batch_size,shuffle=True,collate_fn=collator)
+    collator=CausalDataCollator(tok)
+    loader=DataLoader(train_set,batch_size=cfg.training.batch_size,shuffle=True,collate_fn=collator)
+    val_loader=DataLoader(val_set,batch_size=cfg.training.batch_size,shuffle=False,collate_fn=collator)
     optimizer=AdamW((p for p in model.parameters() if p.requires_grad),lr=cfg.training.learning_rate,weight_decay=cfg.training.weight_decay)
     steps=math.ceil(len(loader)/cfg.training.gradient_accumulation_steps)*cfg.training.epochs
     scheduler=get_linear_schedule_with_warmup(optimizer, int(steps*cfg.training.warmup_ratio), steps)
@@ -37,10 +39,20 @@ def main() -> None:
             batch={k:v.to(device) for k,v in batch.items()}; loss=model(**batch).loss/cfg.training.gradient_accumulation_steps; loss.backward(); total+=loss.item()*cfg.training.gradient_accumulation_steps
             if step%cfg.training.gradient_accumulation_steps==0 or step==len(loader):
                 torch.nn.utils.clip_grad_norm_(model.parameters(),cfg.training.max_grad_norm); optimizer.step(); scheduler.step(); optimizer.zero_grad()
-        mean=total/len(loader); history.append({"epoch":epoch,"train_loss":mean}); print(f"epoch {epoch}/{cfg.training.epochs} train_loss={mean:.4f}")
+        train_loss=total/len(loader)
+        model.eval()
+        val_total=0.0
+        with torch.no_grad():
+            for val_batch in val_loader:
+                val_batch={k:v.to(device) for k,v in val_batch.items()}
+                val_total+=model(**val_batch).loss.item()
+        val_loss=val_total/len(val_loader)
+        model.train()
+        history.append({"epoch":epoch,"train_loss":train_loss,"val_loss":val_loss})
+        print(f"epoch {epoch} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f}")
         if cfg.training.save_each_epoch: model.save_pretrained(Path(cfg.output_dir)/f"checkpoint-epoch-{epoch}")
     out=Path(cfg.output_dir); model.save_pretrained(out); tok.save_pretrained(out)
     total,trainable=parameter_counts(model)
-    write_json(out/"training_metrics.json",{"timestamp":utc_timestamp(),"model":cfg.model_name,"seed":cfg.seed,"dataset_size":{"train":len(train_rows),"val":len(val_rows)},"parameters":{"total":total,"trainable":trainable},"config":cfg.to_dict(),"loss_history":history})
+    write_json(out/"training_metrics.json",{"timestamp":utc_timestamp(),"model":cfg.model_name,"seed":cfg.seed,"dataset_size":{"train":len(train_rows),"val":len(val_rows)},"parameters":{"total":total,"trainable":trainable},"config":cfg.to_dict(),"epochs":history,"loss_history":history})
     print(f"Saved adapter and reproducibility record to {out}")
 if __name__ == "__main__": main()

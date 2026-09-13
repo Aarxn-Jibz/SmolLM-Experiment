@@ -4,10 +4,10 @@ output_dir: outputs/safeslm-lora
 train_file: data/safety_train.jsonl
 val_file: data/safety_val.jsonl
 training:
-  epochs: 3
+  epochs: 5
   learning_rate: 0.0002
   batch_size: 2
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 2
   max_length: 512
   warmup_ratio: 0.05
   weight_decay: 0.01
