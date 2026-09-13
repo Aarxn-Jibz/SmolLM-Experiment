@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.cache/
+outputs/
+results/*.json
+results/*.png
+*.safetensors
+wandb/

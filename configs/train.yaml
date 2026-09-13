@@ -1,0 +1,27 @@
+model_name: HuggingFaceTB/SmolLM2-135M-Instruct
+seed: 42
+output_dir: outputs/safeslm-lora
+train_file: data/safety_train.jsonl
+val_file: data/safety_val.jsonl
+training:
+  epochs: 3
+  learning_rate: 0.0002
+  batch_size: 2
+  gradient_accumulation_steps: 8
+  max_length: 512
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_each_epoch: true
+  full_finetune: false
+lora:
+  enabled: true
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: auto
+generation:
+  max_new_tokens: 128
+  temperature: 0.7
+  top_p: 0.9
