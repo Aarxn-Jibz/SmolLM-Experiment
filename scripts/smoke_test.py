@@ -11,5 +11,8 @@ def main():
  if a.offline:return
  from safeslm.model import attach_lora,load_base_model
  from safeslm.inference import generate_reply
- m,t,d,_=load_base_model(c.model_name);reply=generate_reply(m,t,[{"role":"user","content":"Say hello."}],d,8);print("inference:",reply);attach_lora(m,c.lora);print("full smoke test passed")
+ from safeslm.dataset import CausalDataCollator,SafetySFTDataset
+ m,t,d,_=load_base_model(c.model_name);reply=generate_reply(m,t,[{"role":"user","content":"Say hello."}],d,8);print("inference:",reply);m=attach_lora(m,c.lora)
+ batch=CausalDataCollator(t)([SafetySFTDataset(tr[:1],t,128)[0]]);batch={k:v.to(d) for k,v in batch.items()};m(**batch).loss.backward();print("LoRA one-step backward pass passed")
+ print("full smoke test passed")
 if __name__=="__main__":main()

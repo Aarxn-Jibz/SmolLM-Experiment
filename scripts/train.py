@@ -19,10 +19,12 @@ def main() -> None:
     if cfg.training.full_finetune:
         print("Full fine-tuning enabled: all base weights are trainable.")
     else:
-        model=attach_lora(model,cfg.lora)
         if args.resume:
             from peft import PeftModel
             model=PeftModel.from_pretrained(model,args.resume,is_trainable=True)
+            print(f"Resumed trainable LoRA adapter from {args.resume}")
+        else:
+            model=attach_lora(model,cfg.lora)
     train_set=SafetySFTDataset(train_rows,tok,cfg.training.max_length); val_set=SafetySFTDataset(val_rows,tok,cfg.training.max_length)
     collator=CausalDataCollator(tok); loader=DataLoader(train_set,batch_size=cfg.training.batch_size,shuffle=True,collate_fn=collator)
     optimizer=AdamW((p for p in model.parameters() if p.requires_grad),lr=cfg.training.learning_rate,weight_decay=cfg.training.weight_decay)
